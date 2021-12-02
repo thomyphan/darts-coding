@@ -24,9 +24,11 @@ class QLearner(Agent):
         return self.Q_values[state]
 
     def policy(self, state):
-        pass
-        # TODO
+        Q_val = self.Q(state)
+        return epsilon_greedy(Q_val, None, self.epsilon)
         
     def update(self, state, action, reward, next_state, done):
-        pass
-        # TODO
+        old_Q = self.Q(state)[action]
+        new_Q = reward + self.gamma*max(self.Q(next_state))
+        self.Q(state)[action] = (1-self.alpha)*old_Q + self.alpha*new_Q
+        self.epsilon = max(self.epsilon_min, self.epsilon - self.epsilon_linear_decay)

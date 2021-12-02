@@ -109,20 +109,30 @@ class DQNLearner(QLearner):
         if self.warmup_phase == 0:
             self.training_count += 1
             self.epsilon = max(self.epsilon_min, self.epsilon - self.epsilon_linear_decay)
+
+            # 1. Experience Replay
             minibatch = self.memory.sample_batch(self.minibatch_size)
             states, actions, rewards, next_states, dones = tuple(zip(*minibatch))
             non_final_mask = torch.tensor([not done for done in dones], device=self.device, dtype=torch.bool)
             next_states = [s for s, done in zip(next_states, dones) if not done]
             rewards = torch.tensor(rewards, device=self.device, dtype=torch.float32)
             actions = torch.tensor(actions, device=self.device, dtype=torch.long)
+
+            # Old Q-Value
             current_Q_values = self.Q(states).gather(1, actions.unsqueeze(1)).squeeze()
+
+            # New Q-Value
             next_Q_values = torch.zeros(self.minibatch_size, device=self.device)
             next_Q_values[non_final_mask] = self.target_Q(next_states).max(1)[0].detach()
             Q_targets = rewards + self.gamma*next_Q_values
+
+            # Gradient-based Update
             self.optimizer.zero_grad()
             loss = F.mse_loss(current_Q_values, Q_targets)
             loss.backward()
             self.optimizer.step()
+
+            # Periodic Target Network Update
             if self.training_count%self.target_update_interval == 0:
                 self.update_target_network()
         return loss

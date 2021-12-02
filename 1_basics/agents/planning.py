@@ -1,3 +1,4 @@
+from matplotlib.pyplot import plot
 import numpy
 import copy
 from agents.agent import Agent
@@ -12,12 +13,25 @@ class MonteCarloRolloutPlanner(Agent):
         super(MonteCarloRolloutPlanner, self).__init__(params)
         self.env = params["env"]
         self.gamma = params["gamma"]
-        self.horizon = params["horizon"]
-        self.simulations = params["simulations"]
+        self.horizon = params["horizon"] # h
+        self.simulations = params["simulations"] # K
         
     def policy(self, state):
-        pass
-        # TODO
+        Q_values = numpy.zeros(self.nr_actions)
+        action_counts = numpy.zeros(self.nr_actions)
+        for _ in range(self.simulations):
+            plan = numpy.random.randint(0, self.nr_actions, self.horizon)
+            simulator = copy.deepcopy(self.env)
+            G_t = 0
+            for t, action in enumerate(plan):
+                _, reward, _, _ = simulator.step(action)
+                G_t += reward*(self.gamma**t)
+            first_action = plan[0]
+            Q_values[first_action] += G_t
+            action_counts[first_action] += 1
+        Q_values /= action_counts
+        return numpy.argmax(Q_values)
+
 
 """
  Represents a (state) node in Monte Carlo Tree Search.
@@ -38,24 +52,27 @@ class MonteCarloTreeSearchNode:
      @return the selected action.
     """
     def select(self, Q_values, action_counts):
-        pass
-        # TODO
+        return UCB1(Q_values, action_counts)
 
     """
      Appends a new child node to self.children.
     """
     def expand(self):
-        pass
-        # TODO
+        new_child = MonteCarloTreeSearchNode(self.params)
+        self.children.append(new_child)
         
     """
      Performs a rollout for self.horizon-depth time steps.
      @return the obtained discounted return.
     """
     def rollout(self, generative_model, depth):
-        pass
-        # TODO
-        
+        G_t = 0
+        plan = numpy.random.randint(0, self.nr_actions, self.horizon - depth)
+        for t, action in enumerate(plan):
+            _, reward, _, _ = generative_model.step(action)
+            G_t += reward*(self.gamma**t)
+        return G_t
+
     """
      Updates the Q-values of this node according to
      the observed discounted return and the selected action.
@@ -134,7 +151,10 @@ class MonteCarloTreeSearchPlanner(Agent):
         self.simulations = params["simulations"]
 
     def policy(self, state):
-        pass
-        # TODO
+        root = MonteCarloTreeSearchNode(self.params)
+        for _ in range(self.simulations):
+            simulator = copy.deepcopy(self.env)
+            root.simulate(simulator, 0)
+        return root.final_decision()
 
     
