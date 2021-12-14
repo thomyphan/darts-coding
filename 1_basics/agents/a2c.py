@@ -71,8 +71,6 @@ class A2CLearner(Agent):
                 R = reward + self.gamma*R
                 discounted_returns.append(R)
             discounted_returns.reverse()
-            states = states
-            next_states = next_states
             rewards = torch.tensor(rewards, device=self.device, dtype=torch.float)
             discounted_returns = torch.tensor(discounted_returns, device=self.device, dtype=torch.float).detach()
             normalized_returns = (discounted_returns - discounted_returns.mean())
@@ -84,8 +82,9 @@ class A2CLearner(Agent):
             policy_losses = []
             value_losses = []
             for probs, action, value, R in zip(action_probs, actions, state_values, normalized_returns):
+                advantage = R - value.item()
                 m = Categorical(probs)
-                policy_losses.append(-m.log_prob(action))
+                policy_losses.append(-m.log_prob(action)*advantage)
                 value_losses.append(F.mse_loss(value, torch.tensor([R])))
             loss = torch.stack(policy_losses).mean() + torch.stack(value_losses).mean()
 
